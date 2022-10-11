@@ -1,0 +1,203 @@
+version: '3.4'
+
+networks:
+  bigdata:
+    driver: bridge
+volumes:
+  diagnostics:
+  data:
+  esdata:
+    driver: local
+services:
+  hadoop-master:
+    image: hadoop:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    command: ["./wait-for-it.sh", "--", "/root/start-hadoop.sh"]
+    environment:
+      - HDFS_NAMENODE_USER=root
+      - HDFS_DATANODE_USER=root
+      - HDFS_SECONDARYNAMENODE_USER=root
+      - YARN_RESOURCEMANAGER_USER=root
+      - YARN_NODEMANAGER_USER=root
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
+    networks:
+      bigdata:
+        aliases:
+          - hadoop-master
+    ports:
+      - "9870:9870"
+      - "65088:8088"
+  hadoop-slave1:
+    image: hadoop:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    environment:
+      - HDFS_NAMENODE_USER=root
+      - HDFS_DATANODE_USER=root
+      - HDFS_SECONDARYNAMENODE_USER=root
+      - YARN_RESOURCEMANAGER_USER=root
+      - YARN_NODEMANAGER_USER=root
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
+    networks:
+      bigdata:
+        aliases:
+          - hadoop-slave1
+  hadoop-slave2:
+    image: hadoop:latest
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    environment:
+      - HDFS_NAMENODE_USER=root
+      - HDFS_DATANODE_USER=root
+      - HDFS_SECONDARYNAMENODE_USER=root
+      - YARN_RESOURCEMANAGER_USER=root
+      - YARN_NODEMANAGER_USER=root
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
+    networks:
+      bigdata:
+        aliases:
+          - hadoop-slave2
+##  MongoDb:
+##    image: mongo:latest
+##    container_name: dexpert_mongodb
+##    environment:
+##      - MONGO_INITDB_DATABASE=dexpert_shareddata_dev
+##      - MONGO_INITDB_ROOT_USERNAME=admin
+##      - MONGO_INITDB_ROOT_PASSWORD=admin
+##    networks:
+##      new:
+##        aliases:
+##          - mongodb
+## apm-server:
+##   image: docker.elastic.co/apm/apm-server:7.10.2
+##   depends_on:
+##     elasticsearch:
+##       condition: service_healthy
+##     kibana:
+##       condition: service_healthy
+##   cap_add: ["CHOWN", "DAC_OVERRIDE", "SETGID", "SETUID"]
+##   cap_drop: ["ALL"]
+##   ports:
+##   - 8200:8200
+##   networks:
+##     new:
+##       aliases:
+##         - apmserver
+##   command: >
+##      apm-server -e
+##        -E apm-server.rum.enabled=true
+##        -E setup.kibana.host=kibana:5601
+##        -E setup.template.settings.index.number_of_replicas=0
+##        -E apm-server.kibana.enabled=true
+##        -E apm-server.kibana.host=kibana:5601
+##        -E output.elasticsearch.hosts=["elasticsearch:9200"]
+##   healthcheck:
+##     interval: 10s
+##     retries: 12
+##     test: curl --write-out 'HTTP %{http_code}' --fail --silent --output /dev/null http://localhost:8200/
+## elasticsearch:
+##   image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+##   environment:
+##   - bootstrap.memory_lock=true
+##   - cluster.name=docker-cluster
+##   - cluster.routing.allocation.disk.threshold_enabled=false
+##   - discovery.type=single-node
+##   - ES_JAVA_OPTS=-XX:UseAVX=2 -Xms1g -Xmx1g
+##   ulimits:
+##     memlock:
+##       hard: -1
+##       soft: -1
+##   volumes:
+##   - esdata:/usr/share/elasticsearch/data
+##   ports:
+##   - 9200:9200
+##   networks:
+##     new:
+##       aliases:
+##         - elasticsearch
+##   healthcheck:
+##     interval: 20s
+##     retries: 10
+##     test: curl -s http://localhost:9200/_cluster/health | grep -vq '"status":"red"'
+## kibana:
+##   image: docker.elastic.co/kibana/kibana:7.10.2
+##   depends_on:
+##     elasticsearch:
+##       condition: service_healthy
+##   environment:
+##     ELASTICSEARCH_URL: http://elasticsearch:9200
+##     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+##   ports:
+##   - 5601:5601
+##   networks:
+##     new:
+##       aliases:
+##         - kibana
+##   healthcheck:
+##     interval: 10s
+##     retries: 20
+##     test: curl --write-out 'HTTP %{http_code}' --fail --silent --output /dev/null http://localhost:5601/api/status
+## DExpert.Profiler:
+##   image: profiler:latest
+##   build:
+##     context: .
+##     dockerfile: src/Performance/Dockerfile
+##   networks:
+##     new:
+##       aliases:
+##         - profiler
+##   volumes:
+##     - diagnostics:/tmp
+##     - data:/data
+##   tty: true  # Keep the container alive
+##
+##  elasticsearch:
+##    image: docker.elastic.co/elasticsearch/elasticsearch:6.8.8
+##    container_name: dexpert_elasticsearch
+##    volumes:
+##      - ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+##    ports:
+##      - "9200:9200"
+##      - "9300:9300"
+##    environment:
+##      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+##    networks:
+##      new:
+##        aliases:
+##          - elasticsearch
+##  logstash:
+##    image: docker.elastic.co/logstash/logstash:6.8.8
+##    container_name: dexpert_logstash
+##    command: -f /etc/logstash/conf.d/
+##    volumes:
+##      - ./logstash.conf:/etc/logstash/conf.d/logstash.conf
+##    ports:
+##      - "5701:5701"
+##    environment:
+##      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+##    depends_on:
+##      - elasticsearch
+##    networks:
+##      new:
+##        aliases:
+##          - logstash
+##  kibana:
+##    image: docker.elastic.co/kibana/kibana:6.8.8
+##    container_name: dexpert_kibana
+##    volumes:
+##      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+##    ports:
+##      - "5601:5601"
+##    depends_on:
+##      - elasticsearch
+##    networks:
+##      new:
+##        aliases:
+##          - kibana

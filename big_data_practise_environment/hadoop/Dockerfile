@@ -34,7 +34,9 @@ RUN mv /temp/ssh_config ~/.ssh/config && \
 RUN chmod +x ~/start-hadoop.sh && \
     chmod +x $HADOOP_HOME/sbin/start-dfs.sh && \
     chmod +x $HADOOP_HOME/sbin/start-yarn.sh
-
+    
 # format namenode
 RUN /usr/local/hadoop/bin/hdfs namenode -format
-CMD [ "sh", "-c", "service ssh start; bash"]
+
+RUN ~/start-hadoop.sh
+#CMD [ "sh", "-c", "service ssh start; bash"]

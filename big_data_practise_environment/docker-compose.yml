@@ -2,15 +2,24 @@ version: '3'
 
 services:
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    image: hadoop-namenode:latest
+    container_name: namenode
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
     networks:
-      - hbase
+      hbase:
+        aliases:
+          - namenode
     volumes:
       - namenode:/hadoop/dfs/name
     environment:
       - CLUSTER_NAME=test
+      - NODE_TYPE=name
     env_file:
       - ./hadoop.env
+    ports:
+      - "9870:9870"
     deploy:
       mode: replicated
       replicas: 1
@@ -18,86 +27,60 @@ services:
         condition: on-failure
       placement:
         constraints:
-          - node.hostname == akswnc4.aksw.uni-leipzig.de
+          - node.hostname == practice.hadoop.io
       labels:
         traefik.docker.network: hbase
-        traefik.port: 50070
+        traefik.port: 9870
 
-  datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+  datanode1:
+    image: hadoop-datanode:latest
+    container_name: datanode1
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
     networks:
-      - hbase
+      hbase:
+        aliases:
+          - datanode1
     volumes:
-      - datanode:/hadoop/dfs/data
+      - datanode1:/hadoop/dfs/data
     env_file:
       - ./hadoop.env
     environment:
-      SERVICE_PRECONDITION: "namenode:50070"
+      - NODE_TYPE=data
+      - SERVICE_PRECONDITION=namenode:9870
     deploy:
       mode: global
       restart_policy:
         condition: on-failure
       labels:
         traefik.docker.network: hbase
-        traefik.port: 50075
+        traefik.port: 9864
 
-  resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+  datanode2:
+    image: hadoop-datanode:latest
+    container_name: datanode2
+    build:
+      context: .
+      dockerfile: hadoop/Dockerfile
     networks:
-      - hbase
-    environment:
-      SERVICE_PRECONDITION: "namenode:50070 datanode:50075"
+      hbase:
+        aliases:
+          - datanode2
+    volumes:
+      - datanode2:/hadoop/dfs/data
     env_file:
       - ./hadoop.env
-    deploy:
-      mode: replicated
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-      placement:
-        constraints:
-          - node.hostname == akswnc4.aksw.uni-leipzig.de
-      labels:
-        traefik.docker.network: hbase
-        traefik.port: 8088
-    healthcheck:
-      disable: true
-
-  nodemanager:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    networks:
-      - hbase
     environment:
-      SERVICE_PRECONDITION: "namenode:50070 datanode:50075 resourcemanager:8088"
-    env_file:
-      - ./hadoop.env
+      - SERVICE_PRECONDITION=namenode:9870
+      - NODE_TYPE=data
     deploy:
       mode: global
       restart_policy:
         condition: on-failure
       labels:
         traefik.docker.network: hbase
-        traefik.port: 8042
-
-  historyserver:
-    image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
-    networks:
-      - hbase
-    volumes:
-      - hadoop_historyserver:/hadoop/yarn/timeline
-    environment:
-      SERVICE_PRECONDITION: "namenode:50070 datanode:50075 resourcemanager:8088"
-    env_file:
-      - ./hadoop.env
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints:
-          - node.hostname == akswnc4.aksw.uni-leipzig.de
-      labels:
-        traefik.docker.network: hbase
-        traefik.port: 8188
+        traefik.port: 9865
 
   spark-master:
     image: bde2020/spark-master:3.3.0-hadoop3.3
@@ -105,7 +88,7 @@ services:
       - hbase
     container_name: spark-master
     ports:
-      - "8080:8080"
+      - "65080:8080"
       - "7077:7077"
     environment:
       - INIT_DAEMON_STEP=setup_spark
@@ -117,7 +100,7 @@ services:
     depends_on:
       - spark-master
     ports:
-      - "8081:8081"
+      - "65081:8081"
     environment:
       - "SPARK_MASTER=spark://spark-master:7077"
   spark-worker-2:
@@ -128,7 +111,7 @@ services:
     depends_on:
       - spark-master
     ports:
-      - "8082:8081"
+      - "65082:8081"
     environment:
       - "SPARK_MASTER=spark://spark-master:7077"
   spark-history-server:
@@ -144,9 +127,9 @@ services:
         - /tmp/spark-events-local:/tmp/spark-events
 
 volumes:
-  datanode:
+  datanode1:
+  datanode2:
   namenode:
-  hadoop_historyserver:
 
 networks:
   hbase:

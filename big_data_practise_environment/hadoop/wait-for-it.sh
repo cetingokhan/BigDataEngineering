@@ -1,9 +1,0 @@
-#!/bin/sh
-# wait-for-postgres.sh
-
-set -e
-shift
-sleep 5
-
->&2 echo "Postgres is up - executing command"
-exec "$@"
